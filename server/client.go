@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"log"
 	"net/http"
 	"time"
@@ -17,6 +18,9 @@ const (
 
 	// Time before a write is considered failed.
 	writeTimeout = 10 * time.Second
+
+	// Time allowed for user to send credentials for authentication setup.
+	authTimeout = 10 * time.Second
 
 	// Maximum message size allowed from client.
 	maxMessageSize = 512
@@ -113,6 +117,25 @@ func (c *Client) write() {
 
 }
 
+// Returns a non-nil error if a non-authenticated user tries to establish a websocket connection.
+func (c *Client) ensureAuthenticated() error {
+	log.Println("Waiting for authentication message from client.")
+	c.conn.SetReadDeadline(time.Now().Add(authTimeout))
+	for {
+		_, message, err := c.conn.ReadMessage()
+		if err != nil {
+			log.Println("Did not receive valid credentials before timeout.")
+			return err
+		}
+
+		if bytes.Equal(message, []byte("secret")) {
+			log.Println("Received valid credentials from client.")
+			return nil
+		}
+	}
+
+}
+
 // Handles the creation of a Client when receiving an incoming websocket connection.
 func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
 	log.Printf("Incoming websocket connection from %v\n", r.RemoteAddr)
@@ -127,9 +150,17 @@ func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
 		conn: conn,
 		send: make(chan []byte, 16),
 	}
+
+	if err := client.ensureAuthenticated(); err != nil {
+		log.Println(err)
+		conn.Close()
+		return
+	}
+
 	hub.register <- client
 
 	// Start reading from and writing to websocket.
+	log.Println("Now reading from and writing to websocket.")
 	go client.write()
 	go client.read()
 }

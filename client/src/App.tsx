@@ -12,9 +12,10 @@ function pingBackend() {
 }
 
 function App() {
-    useWebSocket(WS_URL, {
+    const { sendMessage, lastMessage, readyState } = useWebSocket(WS_URL, {
         onOpen: () => {
             console.log("Websocket connection established.")
+            sendMessage("secret")
         }
     })
 
