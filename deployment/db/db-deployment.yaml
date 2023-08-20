@@ -21,21 +21,23 @@ spec:
           image: mongo
           args: ["--dbpath", "/data/db"]
           livenessProbe:
-            exec:
-              command:
-                - mongo
-                - --disableImplicitSessions
-                - --eval
-                - "db.adminCommand('ping')"
-            initialDelaySeconds: 30
+            tcpSocket:
+              port: 27017
+            # exec:
+            #   command:
+            #     - mongosh
+            #     - --eval
+            #     - "db.adminCommand('ping')"
+            initialDelaySeconds: 10
           readinessProbe:
-            exec:
-              command:
-                - mongo
-                - --disableImplicitSessions
-                - --eval
-                - "db.adminCommand('ping')"
-            initialDelaySeconds: 30
+            tcpSocket:
+              port: 27017
+            # exec:
+            #   command:
+            #     - mongosh
+            #     - --eval
+            #     - "db.adminCommand('ping')"
+            initialDelaySeconds: 10
           env:
             - name: MONGO_INITDB_ROOT_USERNAME
               valueFrom:
@@ -47,16 +49,16 @@ spec:
                 secretKeyRef:
                   name: db-credentials
                   key: password
-          volumeMounts:
-            - name: "mongo-data"
-              mountPath: "/data/db"
+          # volumeMounts:
+          #   - name: "mongo-data"
+          #     mountPath: "/data/db"
           resources:
             limits:
               memory: "512Mi"
               cpu: 1
           ports:
-            - containerPort: 5000
+            - containerPort: 27017
       volumes:
         - name: "mongo-data"
-          persistentVolumeClaim:
-            claimName: "db-pvc"
+          hostPath:
+            path: "/data/db"

@@ -18,7 +18,6 @@ spec:
       containers:
         - name: client
           image: "dichlorodiphen/client"
-          imagePullPolicy: Never
           resources:
             limits:
               memory: 512Mi

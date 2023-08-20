@@ -18,7 +18,6 @@ spec:
       containers:
         - name: server
           image: "dichlorodiphen/server"
-          imagePullPolicy: Never
           env:
             - name: MONGO_INITDB_ROOT_USERNAME
               valueFrom:
