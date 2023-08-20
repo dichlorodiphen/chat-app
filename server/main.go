@@ -8,15 +8,10 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
-
-type Student struct {
-	FirstName string `bson:"first_name,omitempty"`
-	LastName  string `bson:"last_name,omitempty"`
-	Age       int    `bson:"omitempty"`
-}
 
 func main() {
 	client := connectToDatabase()
@@ -27,48 +22,17 @@ func main() {
 		}
 	}()
 
-	// TODO: Remove db testing code below.
-	student := Student{
-		FirstName: "Arthur",
-		LastName:  "Evans",
-		Age:       12,
-	}
-	collection := client.Database("admin").Collection("students")
-	log.Println("Created collection.")
-	// TODO: Create context.
-	filter := Student{FirstName: "Arthur"}
-	var result Student
-	log.Println("Performing initial read.")
-	if err := collection.FindOne(context.TODO(), filter).Decode(&result); err != nil {
-		log.Println("Could not decode result from initial read.")
-		log.Println(err)
-	} else {
-		log.Printf("Result from first read: %v\n", result)
-	}
-	if _, err := collection.InsertOne(context.TODO(), student); err != nil {
-		log.Println(err)
-	} else {
-		log.Println("Successfully inserted student into collection.")
-	}
-	if err := collection.FindOne(context.TODO(), filter).Decode(&result); err != nil {
-		log.Println("Could not decode result from second read.")
-		log.Println(err)
-	} else {
-		log.Printf("Result from second read: %v\n", result)
-	}
-
-	// END: db testing code.
-
 	hub := newHub()
 	go hub.run()
 
-	http.HandleFunc("/", echo)
-	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
+	router := mux.NewRouter()
+	router.PathPrefix("/").HandlerFunc(echo)
+	router.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
 		serveWs(hub, w, r)
 	})
 
 	fmt.Println("Starting server.")
-	log.Fatal(http.ListenAndServe("0.0.0.0:8000", nil))
+	log.Fatal(http.ListenAndServe("0.0.0.0:8000", router))
 }
 
 // Creates a connection to the database and returns the corresponding Client.
