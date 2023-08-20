@@ -1,3 +1,4 @@
+// The backend that is started in main.go.
 package main
 
 import (
@@ -13,6 +14,9 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+// The server struct encapsulates the entire state of the backend, including
+// both the websocket used for real-time chat and the REST API for the control
+// plane.
 type Server struct {
 	// The connection to the MongoDB database.
 	dbClient *mongo.Client
@@ -33,6 +37,7 @@ type Server struct {
 	router *mux.Router
 }
 
+// Create a new server.
 func newServer() *Server {
 	ctx := context.TODO()
 	client := connectToDatabase(ctx)
@@ -48,6 +53,8 @@ func newServer() *Server {
 		router: mux.NewRouter(),
 	}
 }
+
+// Set up the routes in our API.
 func (s Server) setUpRoutes() {
 	// Users API.
 	s.router.Path("/users/signup").
@@ -79,6 +86,7 @@ func (s Server) setUpRoutes() {
 
 }
 
+// Begin serving the routes associated with the server's mux.
 func (s Server) start() {
 	defer func() {
 		log.Println("Disconnecting MongoDB client.")
