@@ -9,18 +9,19 @@ import (
 	"os"
 
 	"github.com/gorilla/mux"
+	"github.com/gorilla/sessions"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 func main() {
-	client := connectToDatabase()
-	defer func() {
-		log.Println("Disconnecting MongoDB client.")
-		if err := client.Disconnect(context.TODO()); err != nil {
-			log.Fatal(err)
-		}
-	}()
+	// client := connectToDatabase()
+	// defer func() {
+	// 	log.Println("Disconnecting MongoDB client.")
+	// 	if err := client.Disconnect(context.TODO()); err != nil {
+	// 		log.Fatal(err)
+	// 	}
+	// }()
 
 	hub := newHub()
 	go hub.run()
@@ -63,9 +64,23 @@ func enableCors(w *http.ResponseWriter) {
 	(*w).Header().Set("Access-Control-Allow-Origin", "*")
 }
 
+var store = sessions.NewCookieStore([]byte("secret"))
+
 // Echoes back the request path to the client.
 func echo(w http.ResponseWriter, r *http.Request) {
 	enableCors(&w)
+
+	session, _ := store.Get(r, "test-session")
+	if r.URL.Path == "/" {
+		session.Values["test"] = "success"
+		if err := session.Save(r, w); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+		log.Println("Stored data in session.")
+	} else {
+		log.Println("Reading data in session.")
+		log.Println(session.Values["test"])
+	}
 
 	fmt.Println("Got connection")
 	fmt.Fprintf(w, "Path: %q\n", r.URL.Path)
