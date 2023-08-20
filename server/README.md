@@ -16,9 +16,7 @@
 * Responses:
     * 201 (CREATED)
         ```
-        {
-            jwtToken: <token>
-        }
+        <JWT token>
         ```
     * 400 (BAD REQUEST)
 
@@ -36,9 +34,7 @@
 * Responses:
     * 200 (OK) - messing a bit with HTTP semantics but it's for the greater good
         ```
-        {
-            jwtToken: <token>
-        } 
+        <JWT token>
         ```
     * 403 (FORBIDDEN)
 

@@ -1,6 +1,5 @@
 import './App.css';
 
-import React from 'react';
 import logo from './logo.svg';
 import { useWebSocket } from 'react-use-websocket/dist/lib/use-websocket';
 
@@ -9,6 +8,22 @@ const WS_URL = 'ws://127.0.0.1:8000/ws'
 function pingBackend() {
     console.log("Pinging backend")
     fetch("http://127.0.0.1:8000/ping")
+}
+
+async function signUp() {
+    const username = "testusername"
+    const password = "testpassword"
+    console.log(`Signing up with username ${username} and password ${password}`)
+
+    const data = await fetch("http://127.0.0.1:8000/users/signup", {
+        method: "POST",
+        body: JSON.stringify({
+            "username": username,
+            "password": password,
+        })
+    })
+
+    console.log(`Got the following from signup endpoint: ${await data.text()}`)
 }
 
 function App() {
@@ -27,6 +42,7 @@ function App() {
                     Edit <code>src/App.tsx</code> and save to reload.
                 </p>
                 <button onClick={pingBackend}>Ping the backend!</button>
+                <button onClick={signUp}>Sign up</button>
                 <a
                     className="App-link"
                     href="https://reactjs.org"

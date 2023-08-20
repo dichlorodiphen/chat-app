@@ -14,8 +14,14 @@ import (
 )
 
 type Server struct {
-	// Client used to connect to the database.
-	db *mongo.Client
+	// The connection to the MongoDB database.
+	dbClient *mongo.Client
+
+	// The database used for this application.
+	db *mongo.Database
+
+	// The context for the database connection.
+	ctx context.Context
 
 	// Hub encapsulating websocket connections to server.
 	hub *Hub
@@ -28,32 +34,41 @@ type Server struct {
 }
 
 func newServer() *Server {
+	ctx := context.TODO()
+	client := connectToDatabase(ctx)
+
 	return &Server{
 		// TODO: create db context
-		db:  connectToDatabase(),
-		hub: newHub(),
+		dbClient: client,
+		db:       client.Database("admin"),
+		ctx:      ctx,
+		hub:      newHub(),
 		// TODO: Use an actual secret lol.
 		store:  sessions.NewCookieStore([]byte("secret")),
 		router: mux.NewRouter(),
 	}
 }
 func (s Server) setUpRoutes() {
-	s.router.PathPrefix("/").HandlerFunc(s.wrapHandler(echo))
 	s.router.Path("/users/signup").
 		Methods("POST").
-		HandlerFunc(handleSignup)
+		HandlerFunc(s.wrapHandler(handleSignup))
+
 	s.router.Path("/users/login").
 		Methods("POST").
-		HandlerFunc(handleLogin)
+		HandlerFunc(s.wrapHandler(handleLogin))
+
 	s.router.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
 		serveWs(s.hub, w, r)
 	})
+	s.router.PathPrefix("/ping").HandlerFunc(s.wrapHandler(echo))
+
 }
 
 func (s Server) start() {
 	defer func() {
 		log.Println("Disconnecting MongoDB client.")
-		if err := s.db.Disconnect(context.TODO()); err != nil {
+		if err := s.dbClient.Disconnect(s.ctx); err != nil {
 			log.Fatal(err)
 		}
 	}()
@@ -64,7 +79,7 @@ func (s Server) start() {
 }
 
 // Creates a connection to the database and returns the corresponding Client.
-func connectToDatabase() *mongo.Client {
+func connectToDatabase(ctx context.Context) *mongo.Client {
 	username := os.Getenv("MONGO_INITDB_ROOT_USERNAME")
 	password := os.Getenv("MONGO_INITDB_ROOT_PASSWORD")
 	if username == "" {
@@ -78,7 +93,7 @@ func connectToDatabase() *mongo.Client {
 		Password: password,
 	}
 	options := options.Client().ApplyURI("mongodb://db-service:27017/admin").SetAuth(credentials)
-	client, err := mongo.Connect(context.TODO(), options)
+	client, err := mongo.Connect(ctx, options)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -97,7 +112,7 @@ func (s *Server) wrapHandler(handler func(s *Server, w http.ResponseWriter, r *h
 // Echoes back the request path to the client.
 func echo(s *Server, w http.ResponseWriter, r *http.Request) {
 	session, _ := s.store.Get(r, "test-session")
-	if r.URL.Path == "/" {
+	if r.URL.Path == "/ping" {
 		session.Values["test"] = "success"
 		if err := session.Save(r, w); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
