@@ -49,18 +49,32 @@ func newServer() *Server {
 	}
 }
 func (s Server) setUpRoutes() {
+	// Users API.
 	s.router.Path("/users/signup").
 		Methods("POST").
 		HandlerFunc(s.wrapHandler(handleSignup))
-
 	s.router.Path("/users/login").
 		Methods("POST").
 		HandlerFunc(s.wrapHandler(handleLogin))
 
+	// Messsages API.
+	s.router.Path("/messages").
+		Methods("GET").
+		HandlerFunc(s.wrapHandler(handleGetAllMessages))
+	s.router.Path("/messages").
+		Methods("POST").
+		HandlerFunc(s.wrapHandler(handleCreateMessage))
+	s.router.Path("/messages/{id}").
+		Methods("PATCH").
+		HandlerFunc(s.wrapHandler(handleUpdateMessage))
+
+	// Websocket for real-time chat.
 	s.router.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		serveWs(s.hub, w, r)
 	})
+
+	// Ping endpoint (for testing).
 	s.router.PathPrefix("/ping").HandlerFunc(s.wrapHandler(echo))
 
 }

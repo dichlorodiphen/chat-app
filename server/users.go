@@ -96,6 +96,7 @@ func handleSignup(s *Server, w http.ResponseWriter, r *http.Request) {
 	log.Printf("Created user with username: %v and password %v\n", body.Username, body.Password)
 }
 
+// Generate a signed JWT token for the given username.
 func generateJWTToken(username string) (string, error) {
 	claims := JwtClaims{
 		username,
