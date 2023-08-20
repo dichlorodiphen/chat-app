@@ -31,8 +31,8 @@ type User struct {
 	Password []byte `bson:"password,omitempty"`
 }
 
-// Body of requests to the signup endpoint.
-type SignupRequestBody struct {
+// Body of requests to the signup and login endpoints.
+type AuthRequestBody struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
 }
@@ -40,7 +40,7 @@ type SignupRequestBody struct {
 // Endpoint for user signup.
 func handleSignup(s *Server, w http.ResponseWriter, r *http.Request) {
 	// Deserialize request.
-	var body SignupRequestBody
+	var body AuthRequestBody
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -84,16 +84,7 @@ func handleSignup(s *Server, w http.ResponseWriter, r *http.Request) {
 
 	// Compute JWT token.
 	// TODO: Add in rollback logic on error.
-	claims := JwtClaims{
-		body.Username,
-		jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			NotBefore: jwt.NewNumericDate(time.Now()),
-		},
-	}
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	ss, err := token.SignedString(JWT_SIGNING_KEY)
+	token, err := generateJWTToken(body.Username)
 	if err != nil {
 		log.Println(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -101,8 +92,22 @@ func handleSignup(s *Server, w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusCreated)
-	fmt.Fprint(w, ss)
+	fmt.Fprint(w, token)
 	log.Printf("Created user with username: %v and password %v\n", body.Username, body.Password)
+}
+
+func generateJWTToken(username string) (string, error) {
+	claims := JwtClaims{
+		username,
+		jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			NotBefore: jwt.NewNumericDate(time.Now()),
+		},
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+
+	return token.SignedString(JWT_SIGNING_KEY)
 }
 
 // Return whether or not a user exists in our database.
@@ -121,6 +126,41 @@ func (s Server) userExists(username string) (bool, error) {
 
 // Endpoint for user authentication.
 func handleLogin(s *Server, w http.ResponseWriter, r *http.Request) {
-	// TODO: Implement.
-	return
+	// Deserialize request.
+	var body AuthRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Get user from database.
+	users := s.db.Collection("users")
+	var user User
+	if err := users.FindOne(s.ctx, User{Username: body.Username}).Decode(&user); err != nil {
+		if err == mongo.ErrNoDocuments {
+			http.Error(w, "No account with given username and password.", http.StatusForbidden)
+			return
+		}
+
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		fmt.Println(err)
+		return
+	}
+
+	// Compare passwords.
+	if err := bcrypt.CompareHashAndPassword(user.Password, []byte(body.Password)); err != nil {
+		http.Error(w, "No account with given username and password.", http.StatusForbidden)
+		return
+	}
+
+	// Generate JWT token.
+	token, err := generateJWTToken(body.Username)
+	if err != nil {
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	fmt.Fprint(w, token)
+	log.Printf("Successfully authenticated user with username: %v and password %v\n", body.Username, body.Password)
 }

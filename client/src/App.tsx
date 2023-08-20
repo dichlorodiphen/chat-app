@@ -26,6 +26,22 @@ async function signUp() {
     console.log(`Got the following from signup endpoint: ${await data.text()}`)
 }
 
+async function logIn() {
+    const username = "testusername"
+    const password = "testpassword"
+    console.log(`Trying to log in with username ${username} and password ${password}`)
+
+    const data = await fetch("http://127.0.0.1:8000/users/login", {
+        method: "POST",
+        body: JSON.stringify({
+            "username": username,
+            "password": password,
+        })
+    })
+
+    console.log(`Got the following from login endpoint: ${await data.text()}`)
+}
+
 function App() {
     const { sendMessage, lastMessage, readyState } = useWebSocket(WS_URL, {
         onOpen: () => {
@@ -43,6 +59,7 @@ function App() {
                 </p>
                 <button onClick={pingBackend}>Ping the backend!</button>
                 <button onClick={signUp}>Sign up</button>
+                <button onClick={logIn}>Log in</button>
                 <a
                     className="App-link"
                     href="https://reactjs.org"

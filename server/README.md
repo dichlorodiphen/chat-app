@@ -36,6 +36,7 @@
         ```
         <JWT token>
         ```
+    * 400 (BAD REQUEST)
     * 403 (FORBIDDEN)
 
 ### /messages (GET)
