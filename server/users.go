@@ -25,6 +25,12 @@ type JwtClaims struct {
 type User struct {
 	Username string `bson:"username"`
 	Password []byte `bson:"password,omitempty"`
+
+	// Set of upvoted messages (by IDs).
+	Upvoted map[string]struct{} `bson:"upvoted,omitempty"`
+
+	// Set of downvoted messages (by IDs).
+	Downvoted map[string]struct{} `bson:"downvoted,omitempty"`
 }
 
 // Body of requests to the signup and login endpoints.
@@ -69,8 +75,10 @@ func handleSignup(s *Server, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	newUser := User{
-		Username: body.Username,
-		Password: hash,
+		Username:  body.Username,
+		Password:  hash,
+		Upvoted:   map[string]struct{}{},
+		Downvoted: map[string]struct{}{},
 	}
 	if _, err := users.InsertOne(s.ctx, newUser); err != nil {
 		log.Println(err)

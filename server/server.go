@@ -71,13 +71,13 @@ func (s Server) setUpRoutes() {
 	messagesRouter := s.router.PathPrefix("/messages").Subrouter()
 	messagesRouter.Use(authenticationMiddleware)
 	messagesRouter.Path("").
-		Methods("GET").
+		Methods("GET", "OPTIONS").
 		HandlerFunc(s.wrapHandler(handleGetAllMessages))
 	messagesRouter.Path("").
-		Methods("POST").
+		Methods("POST", "OPTIONS").
 		HandlerFunc(s.wrapHandler(handleCreateMessage))
 	messagesRouter.Path("{id}").
-		Methods("PATCH").
+		Methods("PATCH", "OPTIONS").
 		HandlerFunc(s.wrapHandler(handleUpdateMessage))
 
 	// Websocket for real-time chat.
@@ -133,6 +133,7 @@ func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Headers", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "*")
 
 		// Don't pass down chain if preflight request.
 		if r.Method == "OPTIONS" {
