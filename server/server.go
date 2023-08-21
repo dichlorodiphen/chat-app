@@ -56,6 +56,9 @@ func newServer() *Server {
 
 // Set up the routes in our API.
 func (s Server) setUpRoutes() {
+	// CORS
+	s.router.Use(corsMiddleware)
+
 	// Users API.
 	s.router.Path("/users/signup").
 		Methods("POST").
@@ -65,19 +68,21 @@ func (s Server) setUpRoutes() {
 		HandlerFunc(s.wrapHandler(handleLogin))
 
 	// Messsages API.
-	s.router.Path("/messages").
+	messagesRouter := s.router.PathPrefix("/messages").Subrouter()
+	messagesRouter.Use(authenticationMiddleware)
+	messagesRouter.Path("").
 		Methods("GET").
 		HandlerFunc(s.wrapHandler(handleGetAllMessages))
-	s.router.Path("/messages").
+	messagesRouter.Path("").
 		Methods("POST").
 		HandlerFunc(s.wrapHandler(handleCreateMessage))
-	s.router.Path("/messages/{id}").
+	messagesRouter.Path("{id}").
 		Methods("PATCH").
 		HandlerFunc(s.wrapHandler(handleUpdateMessage))
 
 	// Websocket for real-time chat.
 	s.router.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
+		// w.Header().Set("Access-Control-Allow-Origin", "*")
 		serveWs(s.hub, w, r)
 	})
 
@@ -124,9 +129,22 @@ func connectToDatabase(ctx context.Context) *mongo.Client {
 	return client
 }
 
+func corsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Headers", "*")
+
+		// Don't pass down chain if preflight request.
+		if r.Method == "OPTIONS" {
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
 func (s *Server) wrapHandler(handler func(s *Server, w http.ResponseWriter, r *http.Request)) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
 		handler(s, w, r)
 	}
 }

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -15,9 +14,6 @@ import (
 
 // Number of iterations bcrypt will use to hash the password.
 const BCRYPT_ITERATIONS = 12
-
-// Replace this with an environment variable.
-var JWT_SIGNING_KEY = []byte("secret")
 
 // Custom JWT claims so that we can extract the username of the user.
 type JwtClaims struct {
@@ -94,21 +90,6 @@ func handleSignup(s *Server, w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 	fmt.Fprint(w, token)
 	log.Printf("Created user with username: %v and password %v\n", body.Username, body.Password)
-}
-
-// Generate a signed JWT token for the given username.
-func generateJWTToken(username string) (string, error) {
-	claims := JwtClaims{
-		username,
-		jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			NotBefore: jwt.NewNumericDate(time.Now()),
-		},
-	}
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-
-	return token.SignedString(JWT_SIGNING_KEY)
 }
 
 // Return whether or not a user exists in our database.
