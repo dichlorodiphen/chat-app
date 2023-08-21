@@ -3,6 +3,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"sort"
@@ -10,15 +11,17 @@ import (
 
 	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 // Representation of a message in the database and over the wire.
 type Message struct {
 	ID      string    `bson:"_id,omitempty" json:"id"`
-	Author  string    `bson:"author,omitempty" json:"author"`
-	Content string    `bson:"content,omitempty" json:"content"`
+	Author  string    `bson:"author" json:"author"`
+	Content string    `bson:"content" json:"content"`
 	Votes   int       `json:"votes"`
-	Created time.Time `bson:"created,omitempty" json:"created"`
+	Created time.Time `bson:"created" json:"created"`
 }
 
 // Endpoint for getting all messages in chat.
@@ -78,7 +81,7 @@ func handleCreateMessage(s *Server, w http.ResponseWriter, r *http.Request) {
 	messagesCollection := s.db.Collection("messages")
 	message := Message{
 		// TODO: maybe add nil check for username header.
-		Author:  w.Header().Get("username"),
+		Author:  r.Header.Get("username"),
 		Content: body.Content,
 		Votes:   0,
 		Created: time.Now(),
@@ -92,10 +95,172 @@ func handleCreateMessage(s *Server, w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// Body of request to the update message endpoint.
+type UpdateMessageRequestBody struct {
+	ID   string `json:id`
+	Vote int    `json:vote`
+}
+
 // Endpoint for updating the vote count of a message.
 func handleUpdateMessage(s *Server, w http.ResponseWriter, r *http.Request) {
-	// TODO: Use findoneandupdate
-	// https://pkg.go.dev/go.mongodb.org/mongo-driver/mongo#Collection.FindOneAndUpdate
 	id := mux.Vars(r)["id"]
 	log.Printf("Updating message with ID: %v\n", id)
+
+	// Deserialize request.
+	var body UpdateMessageRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Update vote count.
+	var err error
+	username := r.Header.Get("username")
+	switch body.Vote {
+	case 1:
+		err = s.upvote(username, id)
+	case -1:
+		err = s.downvote(username, id)
+	default:
+		log.Println("bad value for vote")
+		http.Error(w, "bad value for vote", http.StatusBadRequest)
+		return
+	}
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			log.Println(err)
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
+
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+// Upvote a message.
+func (s Server) upvote(username string, id string) error {
+	session, err := s.dbClient.StartSession()
+	if err != nil {
+		return err
+	}
+	defer session.EndSession(s.ctx)
+
+	messagesCollection := s.db.Collection("messages")
+	usersCollection := s.db.Collection("users")
+
+	_, err = session.WithTransaction(s.ctx, func(ctx mongo.SessionContext) (interface{}, error) {
+		changeInVoteCount := 0
+
+		// Get user.
+		var user User
+		if err := usersCollection.FindOne(s.ctx, bson.M{"username": username}).Decode(&user); err != nil {
+			log.Println(err)
+			return nil, err
+		}
+
+		// Add upvote if not already upvoted.
+		if _, ok := user.Upvoted[id]; ok {
+			return nil, fmt.Errorf("user %v has already upvoted message %v", username, id)
+		}
+		user.Upvoted[id] = struct{}{}
+		changeInVoteCount++
+
+		// Remove downvote if it exists.
+		if _, ok := user.Downvoted[id]; ok {
+			delete(user.Downvoted, id)
+			changeInVoteCount++
+		}
+
+		// Increment vote count on message.
+		objectID, _ := primitive.ObjectIDFromHex(id)
+		filter := bson.D{{"_id", objectID}}
+		update := bson.M{"$inc": bson.M{"votes": changeInVoteCount}}
+		if err := messagesCollection.FindOneAndUpdate(s.ctx, filter, update).Err(); err != nil {
+			log.Println(err)
+			return nil, err
+		}
+
+		// Update user.
+		objectID, _ = primitive.ObjectIDFromHex(user.ID)
+		filter = bson.D{{"_id", objectID}}
+		update = bson.M{
+			"$set": bson.M{
+				"upvoted":   user.Upvoted,
+				"downvoted": user.Downvoted,
+			},
+		}
+		if err := usersCollection.FindOneAndUpdate(s.ctx, filter, update).Err(); err != nil {
+			log.Println("error updating user")
+			return nil, err
+		}
+
+		return nil, nil
+	})
+
+	return err
+}
+
+// Downvote a message.
+func (s Server) downvote(username string, id string) error {
+	session, err := s.dbClient.StartSession()
+	if err != nil {
+		return err
+	}
+	defer session.EndSession(s.ctx)
+
+	messagesCollection := s.db.Collection("messages")
+	usersCollection := s.db.Collection("users")
+
+	_, err = session.WithTransaction(s.ctx, func(ctx mongo.SessionContext) (interface{}, error) {
+		changeInVoteCount := 0
+
+		// Get user.
+		var user User
+		if err := usersCollection.FindOne(s.ctx, bson.M{"username": username}).Decode(&user); err != nil {
+			log.Println(err)
+			return nil, err
+		}
+
+		// Add downvote if not already downvoted.
+		if _, ok := user.Downvoted[id]; ok {
+			return nil, fmt.Errorf("user %v has already downvoted message %v", username, id)
+		}
+		user.Downvoted[id] = struct{}{}
+		changeInVoteCount--
+
+		// Remove upvote if it exists.
+		if _, ok := user.Upvoted[id]; ok {
+			delete(user.Upvoted, id)
+			changeInVoteCount--
+		}
+
+		// Increment vote count on message.
+		objectID, _ := primitive.ObjectIDFromHex(id)
+		filter := bson.D{{"_id", objectID}}
+		update := bson.M{"$inc": bson.M{"votes": changeInVoteCount}}
+		if err := messagesCollection.FindOneAndUpdate(s.ctx, filter, update).Err(); err != nil {
+			log.Println(err)
+			return nil, err
+		}
+
+		// Update user.
+		objectID, _ = primitive.ObjectIDFromHex(user.ID)
+		filter = bson.D{{"_id", objectID}}
+		update = bson.M{
+			"$set": bson.M{
+				"upvoted":   user.Upvoted,
+				"downvoted": user.Downvoted,
+			},
+		}
+		if err := usersCollection.FindOneAndUpdate(s.ctx, filter, update).Err(); err != nil {
+			log.Println("error updating user")
+			return nil, err
+		}
+
+		return nil, nil
+	})
+
+	return err
 }

@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	"github.com/golang-jwt/jwt/v5"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -23,14 +24,15 @@ type JwtClaims struct {
 
 // Representation of user in database.
 type User struct {
+	ID       string `bson:"_id,omitempty"`
 	Username string `bson:"username"`
-	Password []byte `bson:"password,omitempty"`
+	Password []byte `bson:"password"`
 
 	// Set of upvoted messages (by IDs).
-	Upvoted map[string]struct{} `bson:"upvoted,omitempty"`
+	Upvoted map[string]struct{} `bson:"upvoted"`
 
 	// Set of downvoted messages (by IDs).
-	Downvoted map[string]struct{} `bson:"downvoted,omitempty"`
+	Downvoted map[string]struct{} `bson:"downvoted"`
 }
 
 // Body of requests to the signup and login endpoints.
@@ -103,7 +105,7 @@ func handleSignup(s *Server, w http.ResponseWriter, r *http.Request) {
 // Return whether or not a user exists in our database.
 func (s Server) userExists(username string) (bool, error) {
 	users := s.db.Collection("users")
-	err := users.FindOne(s.ctx, User{Username: username}).Err()
+	err := users.FindOne(s.ctx, bson.M{"username": username}).Err()
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
 			return false, nil
@@ -126,7 +128,7 @@ func handleLogin(s *Server, w http.ResponseWriter, r *http.Request) {
 	// Get user from database.
 	users := s.db.Collection("users")
 	var user User
-	if err := users.FindOne(s.ctx, User{Username: body.Username}).Decode(&user); err != nil {
+	if err := users.FindOne(s.ctx, bson.M{"username": body.Username}).Decode(&user); err != nil {
 		if err == mongo.ErrNoDocuments {
 			http.Error(w, "No account with given username and password.", http.StatusForbidden)
 			return

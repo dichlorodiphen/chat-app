@@ -68,15 +68,15 @@ func (s Server) setUpRoutes() {
 		HandlerFunc(s.wrapHandler(handleLogin))
 
 	// Messsages API.
-	messagesRouter := s.router.PathPrefix("/messages").Subrouter()
+	messagesRouter := s.router.NewRoute().Subrouter()
 	messagesRouter.Use(authenticationMiddleware)
-	messagesRouter.Path("").
+	messagesRouter.Path("/messages").
 		Methods("GET", "OPTIONS").
 		HandlerFunc(s.wrapHandler(handleGetAllMessages))
-	messagesRouter.Path("").
+	messagesRouter.Path("/messages").
 		Methods("POST", "OPTIONS").
 		HandlerFunc(s.wrapHandler(handleCreateMessage))
-	messagesRouter.Path("{id}").
+	messagesRouter.Path("/messages/{id}").
 		Methods("PATCH", "OPTIONS").
 		HandlerFunc(s.wrapHandler(handleUpdateMessage))
 

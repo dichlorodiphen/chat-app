@@ -91,4 +91,5 @@
     * 204 (NO CONTENT)
     * 401 (UNAUTHORIZED)
     * 403 (FORBIDDEN)
+    * 404 (NOT FOUND)
 * Notes: Server should retrieve username by extracting claims from JWT token and handle vote logic to ensure there is no double-voting.
