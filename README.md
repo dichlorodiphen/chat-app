@@ -6,6 +6,8 @@ I ran out of time at the end, so this is massively unpolished. Minimum functiona
 
 ## What is this?
 
+DISCLAIMER: This section is more of a general ramble, as I don't have time to clean it up. The information here is relevant though!
+
 Nimble Chat is a simple chatroom application. The application is structured in three tiers: a database, a backend, and a frontend.
 
 MongoDB is used for the database. The backend is implemented in Go mostly with the standard library. The frontend is implemented in TypeScript using React.
@@ -13,6 +15,12 @@ MongoDB is used for the database. The backend is implemented in Go mostly with t
 Local Kubernetes (minikube) is used for deployment. Manifests have been included in `deployment/`.
 
 Please ignore `build.sh`. I used it during development, but it has no purpose for users, and I'd rather not delete it right now.
+
+OH BEFORE I FORGET! The backend uses a REST API (fully documented in the README in `server/`) for the control plane and a websocket connection `localhost:3000/ws` to stream messages.
+
+JWT tokens are used for authentication, and bcrypt is used to hash passwords for storage in the database.
+
+Race conditions are handled by MongoDB transactions, which you can see if you look at the code in `messages.go` (please don't, that's probably the ugliest endpoint lol).
 
 ## Known issues and areas for future work
 
@@ -23,6 +31,8 @@ Please ignore `build.sh`. I used it during development, but it has no purpose fo
 * A good portion of the code is ugly -- sorry, again, ran out of time so no time to polish.
 * Where are the tests??? -- see above.
 * Definitely more to write here, but I need to record the demo now.
+* OH! Also the first message in the websocket is used for authentication. Right now it just sends a predefined string, but it would take little effort to make it send a JWT token that is then verified by the server.
+* Also vote counts don't refresh dynamically -- only on page refresh. This can be fixed by streaming vote updates through the websocket connection.
 
 ## Running!
 
