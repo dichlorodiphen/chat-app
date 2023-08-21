@@ -86,19 +86,29 @@ func handleCreateMessage(s *Server, w http.ResponseWriter, r *http.Request) {
 		Votes:   0,
 		Created: time.Now(),
 	}
-	if _, err := messagesCollection.InsertOne(s.ctx, message); err != nil {
+	insertResult, err := messagesCollection.InsertOne(s.ctx, message)
+	if err != nil {
 		log.Println(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	// Broadcast message on websocket.
+	message.ID = insertResult.InsertedID.(primitive.ObjectID).Hex()
+	serialized, err := json.Marshal(message)
+	if err != nil {
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	s.hub.broadcast <- serialized
 
 	w.WriteHeader(http.StatusNoContent)
 }
 
 // Body of request to the update message endpoint.
 type UpdateMessageRequestBody struct {
-	ID   string `json:id`
-	Vote int    `json:vote`
+	Vote int `json:"vote"`
 }
 
 // Endpoint for updating the vote count of a message.

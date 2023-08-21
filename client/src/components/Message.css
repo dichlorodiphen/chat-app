@@ -1,0 +1,14 @@
+.message {
+    font-size: 16px;
+    padding: 16px;
+}
+
+button {
+    outline: black solid 1px;
+    margin: auto 1%;
+    cursor: pointer;
+}
+
+button:hover {
+    background-color: #575757;
+}

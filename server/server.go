@@ -41,11 +41,12 @@ type Server struct {
 func newServer() *Server {
 	ctx := context.TODO()
 	client := connectToDatabase(ctx)
+	db := client.Database("admin")
 
 	return &Server{
 		// TODO: create db context
 		dbClient: client,
-		db:       client.Database("admin"),
+		db:       db,
 		ctx:      ctx,
 		hub:      newHub(),
 		// TODO: Use an actual secret lol.

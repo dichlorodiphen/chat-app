@@ -15,6 +15,7 @@ type Hub struct {
 	unregister chan *Client
 }
 
+// Create a new hub.
 func newHub() *Hub {
 	return &Hub{
 		clients:    make(map[*Client]bool),
@@ -24,6 +25,7 @@ func newHub() *Hub {
 	}
 }
 
+// Start broadcasting messages.
 func (h *Hub) run() {
 	for {
 		select {

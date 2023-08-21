@@ -83,7 +83,6 @@
 * Body:
     ```
     {
-        id: <message id>,
         vote: <either 1 or -1>
     } 
     ```

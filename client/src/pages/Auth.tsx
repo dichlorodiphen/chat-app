@@ -1,5 +1,6 @@
 import './Auth.css'
 
+import Logo from '../components/Logo';
 import { useState } from 'react';
 
 type AuthProps = {
@@ -52,7 +53,7 @@ function Auth({ setToken }: AuthProps) {
 
     return (
         <div>
-            <div className='logo'>Nimble Chat</div>
+            <Logo></Logo>
 
             <div className='auth'>
                 <p>Sign up or log in to get started!</p>
