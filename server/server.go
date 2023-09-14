@@ -24,6 +24,12 @@ type Server struct {
 	// The database used for this application.
 	db *mongo.Database
 
+	// The users collection in the database.
+	users *mongo.Collection
+
+	// The messages collection in the database.
+	messages *mongo.Collection
+
 	// The context for the database connection.
 	ctx context.Context
 
@@ -47,6 +53,8 @@ func newServer() *Server {
 		// TODO: create db context
 		dbClient: client,
 		db:       db,
+		users:    db.Collection("users"),
+		messages: db.Collection("messages"),
 		ctx:      ctx,
 		hub:      newHub(),
 		// TODO: Use an actual secret lol.

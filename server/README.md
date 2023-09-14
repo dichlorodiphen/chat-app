@@ -83,11 +83,13 @@
 * Body:
     ```
     {
-        vote: <either 1 or -1>
+        upvoted: <true or false>,
+        downvoted: <true or false>
     } 
     ```
 * Responses:
     * 204 (NO CONTENT)
+    * 400 (BAD REQUEST)
     * 401 (UNAUTHORIZED)
     * 403 (FORBIDDEN)
     * 404 (NOT FOUND)

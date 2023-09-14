@@ -1,5 +1,7 @@
 import './Message.css'
 
+import { useEffect, useState } from 'react';
+
 type MessageProps = {
     id: string,
     author: string,
@@ -10,25 +12,41 @@ type MessageProps = {
 };
 
 function Message({ id, author, content, votes, created, token }: MessageProps) {
-    async function updateMessage(vote: number) {
+    // FIXME: Create endpoint for getting current user to see if a message has been upvoted/downvoted.
+    const [upvoted, setUpvoted] = useState(false)
+    const [downvoted, setDownvoted] = useState(false)
+
+    async function updateMessage(upvoted: boolean, downvoted: boolean) {
         const response = await fetch("http://127.0.0.1:8000/messages/" + id, {
             method: "PATCH",
             headers: {
                 "Authorization": "Bearer " + token,
             },
             body: JSON.stringify({
-                "vote": vote
+                "upvoted": upvoted,
+                "downvoted": downvoted
             })
         });
     }
 
     async function upvote() {
-        await updateMessage(1);
+        if (downvoted) {
+            setDownvoted(false)
+        }
+        setUpvoted(!upvoted);
     }
 
     async function downvote() {
-        await updateMessage(-1);
+        if (upvoted) {
+            setUpvoted(false)
+        }
+        setDownvoted(!downvoted)
     }
+
+    useEffect(() => {
+        console.log(`sending updateMessage: upvoted: ${upvoted}, downvoted ${downvoted}`)
+        updateMessage(upvoted, downvoted);
+    }, [upvoted, downvoted]);
 
     return (
         <div className="message">

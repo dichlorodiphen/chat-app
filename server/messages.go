@@ -3,7 +3,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 	"sort"
@@ -108,7 +107,8 @@ func handleCreateMessage(s *Server, w http.ResponseWriter, r *http.Request) {
 
 // Body of request to the update message endpoint.
 type UpdateMessageRequestBody struct {
-	Vote int `json:"vote"`
+	Upvoted   bool `json:"upvoted"`
+	Downvoted bool `json:"downvoted"`
 }
 
 // Endpoint for updating the vote count of a message.
@@ -123,19 +123,25 @@ func handleUpdateMessage(s *Server, w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	if body.Upvoted && body.Downvoted {
+		http.Error(w, "upvoted and downvoted cannot both be true", http.StatusBadRequest)
+		return
+	}
 
-	// Update vote count.
+	// Update vote.
 	var err error
 	username := r.Header.Get("username")
-	switch body.Vote {
-	case 1:
-		err = s.upvote(username, id)
-	case -1:
-		err = s.downvote(username, id)
-	default:
-		log.Println("bad value for vote")
-		http.Error(w, "bad value for vote", http.StatusBadRequest)
-		return
+	if body.Upvoted {
+		err = s.addUpvote(username, id)
+	} else {
+		err = s.removeUpvote(username, id)
+	}
+	if err == nil {
+		if body.Downvoted {
+			err = s.addDownvote(username, id)
+		} else {
+			err = s.removeDownvote(username, id)
+		}
 	}
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
@@ -147,129 +153,159 @@ func handleUpdateMessage(s *Server, w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+
+	log.Printf("successfully updated message %v with upvoted %v and downvoted %v\n", id, body.Upvoted, body.Downvoted)
 }
 
-// Upvote a message.
-func (s Server) upvote(username string, id string) error {
-	session, err := s.dbClient.StartSession()
-	if err != nil {
-		return err
-	}
-	defer session.EndSession(s.ctx)
-
-	messagesCollection := s.db.Collection("messages")
-	usersCollection := s.db.Collection("users")
-
-	_, err = session.WithTransaction(s.ctx, func(ctx mongo.SessionContext) (interface{}, error) {
-		changeInVoteCount := 0
-
-		// Get user.
-		var user User
-		if err := usersCollection.FindOne(s.ctx, bson.M{"username": username}).Decode(&user); err != nil {
-			log.Println(err)
-			return nil, err
+// Upvote a message (idempotent operation).
+func (s Server) addUpvote(username string, id string) error {
+	return s.executeAsTransaction(func() error {
+		user, err := s.getUser(username)
+		if err != nil {
+			return err
 		}
 
-		// Add upvote if not already upvoted.
 		if _, ok := user.Upvoted[id]; ok {
-			return nil, fmt.Errorf("user %v has already upvoted message %v", username, id)
+			return nil
 		}
 		user.Upvoted[id] = struct{}{}
-		changeInVoteCount++
 
-		// Remove downvote if it exists.
-		if _, ok := user.Downvoted[id]; ok {
-			delete(user.Downvoted, id)
-			changeInVoteCount++
+		if err := s.updateMessageVotes(id, 1); err != nil {
+			return err
+		}
+		if err := s.updateUserVotes(user); err != nil {
+			return err
 		}
 
-		// Increment vote count on message.
-		objectID, _ := primitive.ObjectIDFromHex(id)
-		filter := bson.D{{"_id", objectID}}
-		update := bson.M{"$inc": bson.M{"votes": changeInVoteCount}}
-		if err := messagesCollection.FindOneAndUpdate(s.ctx, filter, update).Err(); err != nil {
-			log.Println(err)
-			return nil, err
-		}
-
-		// Update user.
-		objectID, _ = primitive.ObjectIDFromHex(user.ID)
-		filter = bson.D{{"_id", objectID}}
-		update = bson.M{
-			"$set": bson.M{
-				"upvoted":   user.Upvoted,
-				"downvoted": user.Downvoted,
-			},
-		}
-		if err := usersCollection.FindOneAndUpdate(s.ctx, filter, update).Err(); err != nil {
-			log.Println("error updating user")
-			return nil, err
-		}
-
-		return nil, nil
+		return nil
 	})
-
-	return err
 }
 
-// Downvote a message.
-func (s Server) downvote(username string, id string) error {
+// Remove an upvote from a message (idempotent operation).
+func (s Server) removeUpvote(username string, id string) error {
+	return s.executeAsTransaction(func() error {
+		user, err := s.getUser(username)
+		if err != nil {
+			return err
+		}
+
+		if _, ok := user.Upvoted[id]; !ok {
+			return nil
+		}
+		delete(user.Upvoted, id)
+
+		if err := s.updateMessageVotes(id, -1); err != nil {
+			return err
+		}
+		if err := s.updateUserVotes(user); err != nil {
+			return err
+		}
+
+		return nil
+	})
+}
+
+// Downvote a message (idempotent operation).
+func (s Server) addDownvote(username string, id string) error {
+	return s.executeAsTransaction(func() error {
+		user, err := s.getUser(username)
+		if err != nil {
+			return err
+		}
+
+		if _, ok := user.Downvoted[id]; ok {
+			return nil
+		}
+		user.Downvoted[id] = struct{}{}
+
+		if err := s.updateMessageVotes(id, -1); err != nil {
+			return err
+		}
+		if err := s.updateUserVotes(user); err != nil {
+			return err
+		}
+
+		return nil
+	})
+}
+
+// Remove a downvote from a message (idempotent operation).
+func (s Server) removeDownvote(username string, id string) error {
+	return s.executeAsTransaction(func() error {
+		user, err := s.getUser(username)
+		if err != nil {
+			return err
+		}
+
+		if _, ok := user.Downvoted[id]; !ok {
+			return nil
+		}
+		delete(user.Downvoted, id)
+
+		if err := s.updateMessageVotes(id, 1); err != nil {
+			return err
+		}
+		if err := s.updateUserVotes(user); err != nil {
+			return err
+		}
+
+		return nil
+	})
+}
+
+func (s Server) getUser(username string) (User, error) {
+	var user User
+	if err := s.users.FindOne(s.ctx, bson.M{"username": username}).Decode(&user); err != nil {
+		log.Println(err)
+		return User{}, err
+	}
+
+	return user, nil
+}
+
+// Updates the vote count of the given message by n in the database.
+func (s Server) updateMessageVotes(id string, n int) error {
+	objectID, _ := primitive.ObjectIDFromHex(id)
+	filter := bson.D{{"_id", objectID}}
+	update := bson.M{"$inc": bson.M{"votes": n}}
+	if err := s.messages.FindOneAndUpdate(s.ctx, filter, update).Err(); err != nil {
+		log.Println(err)
+		return err
+	}
+
+	return nil
+}
+
+// Updates the voted and downvoted messages for the given user in the database.
+func (s Server) updateUserVotes(user User) error {
+	objectID, _ := primitive.ObjectIDFromHex(user.ID)
+	filter := bson.D{{"_id", objectID}}
+	update := bson.M{
+		"$set": bson.M{
+			"upvoted":   user.Upvoted,
+			"downvoted": user.Downvoted,
+		},
+	}
+	if err := s.users.FindOneAndUpdate(s.ctx, filter, update).Err(); err != nil {
+		log.Println("error updating user")
+		return err
+	}
+
+	return nil
+}
+
+// Execute the given database code as a transaction.
+func (s Server) executeAsTransaction(f func() error) error {
 	session, err := s.dbClient.StartSession()
 	if err != nil {
 		return err
 	}
 	defer session.EndSession(s.ctx)
 
-	messagesCollection := s.db.Collection("messages")
-	usersCollection := s.db.Collection("users")
-
+	// TODO: If this will be executed in multiple goroutines, protect w/ mutex.
+	// See: https://www.mongodb.com/docs/drivers/go/current/fundamentals/transactions/.
 	_, err = session.WithTransaction(s.ctx, func(ctx mongo.SessionContext) (interface{}, error) {
-		changeInVoteCount := 0
-
-		// Get user.
-		var user User
-		if err := usersCollection.FindOne(s.ctx, bson.M{"username": username}).Decode(&user); err != nil {
-			log.Println(err)
-			return nil, err
-		}
-
-		// Add downvote if not already downvoted.
-		if _, ok := user.Downvoted[id]; ok {
-			return nil, fmt.Errorf("user %v has already downvoted message %v", username, id)
-		}
-		user.Downvoted[id] = struct{}{}
-		changeInVoteCount--
-
-		// Remove upvote if it exists.
-		if _, ok := user.Upvoted[id]; ok {
-			delete(user.Upvoted, id)
-			changeInVoteCount--
-		}
-
-		// Increment vote count on message.
-		objectID, _ := primitive.ObjectIDFromHex(id)
-		filter := bson.D{{"_id", objectID}}
-		update := bson.M{"$inc": bson.M{"votes": changeInVoteCount}}
-		if err := messagesCollection.FindOneAndUpdate(s.ctx, filter, update).Err(); err != nil {
-			log.Println(err)
-			return nil, err
-		}
-
-		// Update user.
-		objectID, _ = primitive.ObjectIDFromHex(user.ID)
-		filter = bson.D{{"_id", objectID}}
-		update = bson.M{
-			"$set": bson.M{
-				"upvoted":   user.Upvoted,
-				"downvoted": user.Downvoted,
-			},
-		}
-		if err := usersCollection.FindOneAndUpdate(s.ctx, filter, update).Err(); err != nil {
-			log.Println("error updating user")
-			return nil, err
-		}
-
-		return nil, nil
+		return nil, f()
 	})
 
 	return err

@@ -32,7 +32,9 @@ function Auth({ setToken }: AuthProps) {
 
         const token = await data.text();
         console.log(`Got the following from signup endpoint: ${token}`);
-        setToken(token);
+        if (data.status == 201) {
+            setToken(token);
+        }
     }
 
     async function logIn() {
@@ -48,7 +50,9 @@ function Auth({ setToken }: AuthProps) {
 
         const token = await data.text();
         console.log(`Got the following from login endpoint: ${token}`);
-        setToken(token);
+        if (data.status == 200) {
+            setToken(token);
+        }
     }
 
     return (
