@@ -5,7 +5,7 @@ metadata:
   name: backend-service
 spec:
   selector:
-    app: nimblechat
+    app: chatapp
     tier: backend
   ports:
     - port: 8000

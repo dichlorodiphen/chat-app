@@ -5,7 +5,7 @@ metadata:
   name: frontend-service
 spec:
   selector:
-    app: nimblechat
+    app: chatapp
     tier: frontend
   ports:
     - port: 3000

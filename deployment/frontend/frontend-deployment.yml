@@ -6,13 +6,13 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app: nimblechat
+      app: chatapp
       tier: frontend
   replicas: 1
   template:
     metadata:
       labels:
-        app: nimblechat
+        app: chatapp
         tier: frontend
     spec:
       containers:

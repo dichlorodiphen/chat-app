@@ -2,7 +2,7 @@ import './Logo.css'
 
 function Logo() {
     return (
-        <div className='logo'>Nimble Chat</div>
+        <div className='logo'>Chat App</div>
     );
 }
 

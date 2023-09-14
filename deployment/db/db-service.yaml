@@ -4,7 +4,7 @@ metadata:
   name: db-service
 spec:
   selector:
-    app: nimble
+    app: chatapp
     tier: db
   ports:
   - port: 27017

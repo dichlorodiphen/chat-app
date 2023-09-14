@@ -3,17 +3,17 @@ kind: Deployment
 metadata:
   name: db-deployment
   labels:
-    app: nimble
+    app: chatapp
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: nimble
+      app: chatapp
       tier: db
   template:
     metadata:
       labels:
-        app: nimble
+        app: chatapp
         tier: db
     spec:
       containers:
