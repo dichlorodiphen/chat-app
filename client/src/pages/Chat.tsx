@@ -29,8 +29,8 @@ function Chat({ token }: ChatProps) {
     // Set up websocket.
     const { sendMessage, lastMessage, readyState } = useWebSocket(WS_URL, {
         onOpen: () => {
-            console.log("Websocket connection established.")
-            sendMessage("secret")
+            console.log("Websocket connection established.");
+            sendMessage(token);
         },
         onMessage: m => {
             console.log(`Received data: ${m.data}`)

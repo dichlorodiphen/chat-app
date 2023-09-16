@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"log"
 	"net/http"
 	"time"
@@ -121,18 +120,15 @@ func (c *Client) write() {
 func (c *Client) ensureAuthenticated() error {
 	log.Println("Waiting for authentication message from client.")
 	c.conn.SetReadDeadline(time.Now().Add(authTimeout))
-	for {
-		_, message, err := c.conn.ReadMessage()
-		if err != nil {
-			log.Println("Did not receive valid credentials before timeout.")
-			return err
-		}
-
-		if bytes.Equal(message, []byte("secret")) {
-			log.Println("Received valid credentials from client.")
-			return nil
-		}
+	_, signedString, err := c.conn.ReadMessage()
+	if err != nil {
+		log.Println("Did not receive valid credentials before timeout.")
+		return err
 	}
+	log.Printf("Got the following JWT, attempting to verify: %v\n", signedString)
+	_, err = verifyJWTToken(string(signedString))
+
+	return err
 
 }
 

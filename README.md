@@ -21,7 +21,7 @@ Upvote race conditions are handled using transactions, allowing us to scale the 
 * [ ] Add logout functionality.
 * [ ] Un-ugly the frontend.
 * [ ] Testing.
-* [ ] Add authentication to `/ws` endpoint.
+* [x] Add authentication to `/ws` endpoint.
 * [ ] Stream vote updates through websocket to update vote counts dynamically.
 
 ## Running

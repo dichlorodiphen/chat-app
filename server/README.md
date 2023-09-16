@@ -1,6 +1,10 @@
 # Server
 
-## API
+## Websocket Endpoint
+
+The websocket endpoint is located at `/ws`. After handshaking, the first message from the client should be a JWT (without the `Bearer ` prefix). After this token is verified by the server, the server will begin streaming messages to the client. If the token cannot be verifed, the server will close the websocket connection.
+
+## REST API
 
 ### /users/signup (POST)
 
