@@ -49,17 +49,20 @@ func newServer() *Server {
 	client := connectToDatabase(ctx)
 	db := client.Database("admin")
 
+	sessionSecret := os.Getenv("SESSION_SECRET")
+	if sessionSecret == "" {
+		log.Fatal("session secret environment variable not defined.")
+	}
+
 	return &Server{
-		// TODO: create db context
 		dbClient: client,
 		db:       db,
 		users:    db.Collection("users"),
 		messages: db.Collection("messages"),
 		ctx:      ctx,
 		hub:      newHub(),
-		// TODO: Use an actual secret lol.
-		store:  sessions.NewCookieStore([]byte("secret")),
-		router: mux.NewRouter(),
+		store:    sessions.NewCookieStore([]byte(sessionSecret)),
+		router:   mux.NewRouter(),
 	}
 }
 
@@ -119,10 +122,10 @@ func connectToDatabase(ctx context.Context) *mongo.Client {
 	username := os.Getenv("MONGO_INITDB_ROOT_USERNAME")
 	password := os.Getenv("MONGO_INITDB_ROOT_PASSWORD")
 	if username == "" {
-		log.Fatal("MongoDB username environment variable not set.")
+		log.Fatal("mongoDB username environment variable not defined.")
 	}
 	if password == "" {
-		log.Fatal("MongoDB password environment variable not set.")
+		log.Fatal("mongoDB password environment variable not defined.")
 	}
 	credentials := options.Credential{
 		Username: username,
