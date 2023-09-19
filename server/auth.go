@@ -14,8 +14,8 @@ import (
 // Replace this with an environment variable.
 var JWT_SIGNING_KEY = []byte("secret")
 
-// Generate a signed JWT token for the given username.
-func generateJWTToken(username string) (string, error) {
+// Generate a signed JWT for the given username.
+func generateJWT(username string) (string, error) {
 	claims := JwtClaims{
 		username,
 		jwt.RegisteredClaims{
@@ -29,7 +29,7 @@ func generateJWTToken(username string) (string, error) {
 	return token.SignedString(JWT_SIGNING_KEY)
 }
 
-// Verifies and extracts claims from a signed JWT token.
+// Verifies and extracts claims from a signed JWT.
 func verifyJWTToken(signedString string) (jwt.Claims, error) {
 	token, err := jwt.Parse(signedString, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
@@ -48,7 +48,7 @@ func verifyJWTToken(signedString string) (jwt.Claims, error) {
 	return token.Claims, err
 }
 
-// Authenticates with JWT token and updates header with claim information.
+// Authenticates with JWT and updates header with claim information.
 func authenticationMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Read and proceess signed string.
@@ -62,12 +62,12 @@ func authenticationMiddleware(next http.Handler) http.Handler {
 		// Verify signed string and extract claims.
 		claims, err := verifyJWTToken(signedString)
 		if err != nil {
-			log.Println("Error verifying JWT token: " + err.Error())
-			http.Error(w, "Error verifying JWT token: "+err.Error(), http.StatusUnauthorized)
+			log.Println("Error verifying JWT: " + err.Error())
+			http.Error(w, "Error verifying JWT: "+err.Error(), http.StatusUnauthorized)
 			return
 		}
 
-		log.Println("Verified JWT token")
+		log.Println("verified JWT")
 
 		// Update headers with information from claims.
 		username := claims.(jwt.MapClaims)["username"].(string)

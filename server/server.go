@@ -9,7 +9,6 @@ import (
 	"os"
 
 	"github.com/gorilla/mux"
-	"github.com/gorilla/sessions"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -36,9 +35,6 @@ type Server struct {
 	// Hub encapsulating websocket connections to server.
 	hub *Hub
 
-	// Session manager for storing client-side session data.
-	store *sessions.CookieStore
-
 	// Multiplexer for handling routing.
 	router *mux.Router
 }
@@ -49,11 +45,6 @@ func newServer() *Server {
 	client := connectToDatabase(ctx)
 	db := client.Database("admin")
 
-	sessionSecret := os.Getenv("SESSION_SECRET")
-	if sessionSecret == "" {
-		log.Fatal("session secret environment variable not defined.")
-	}
-
 	return &Server{
 		dbClient: client,
 		db:       db,
@@ -61,7 +52,6 @@ func newServer() *Server {
 		messages: db.Collection("messages"),
 		ctx:      ctx,
 		hub:      newHub(),
-		store:    sessions.NewCookieStore([]byte(sessionSecret)),
 		router:   mux.NewRouter(),
 	}
 }
@@ -97,10 +87,6 @@ func (s Server) setUpRoutes() {
 		// w.Header().Set("Access-Control-Allow-Origin", "*")
 		serveWs(s.hub, w, r)
 	})
-
-	// Ping endpoint (for testing).
-	s.router.PathPrefix("/ping").HandlerFunc(s.wrapHandler(echo))
-
 }
 
 // Begin serving the routes associated with the server's mux.
@@ -143,7 +129,7 @@ func connectToDatabase(ctx context.Context) *mongo.Client {
 
 func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
 		w.Header().Set("Access-Control-Allow-Headers", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "*")
 
@@ -160,22 +146,4 @@ func (s *Server) wrapHandler(handler func(s *Server, w http.ResponseWriter, r *h
 	return func(w http.ResponseWriter, r *http.Request) {
 		handler(s, w, r)
 	}
-}
-
-// Echoes back the request path to the client.
-func echo(s *Server, w http.ResponseWriter, r *http.Request) {
-	session, _ := s.store.Get(r, "test-session")
-	if r.URL.Path == "/ping" {
-		session.Values["test"] = "success"
-		if err := session.Save(r, w); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		}
-		log.Println("Stored data in session.")
-	} else {
-		log.Println("Reading data in session.")
-		log.Println(session.Values["test"])
-	}
-
-	fmt.Println("Got connection")
-	fmt.Fprintf(w, "Path: %q\n", r.URL.Path)
 }

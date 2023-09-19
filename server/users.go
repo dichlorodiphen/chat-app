@@ -88,9 +88,9 @@ func handleSignup(s *Server, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Compute JWT token.
+	// Compute JWT.
 	// TODO: Add in rollback logic on error.
-	token, err := generateJWTToken(body.Username)
+	token, err := generateJWT(body.Username)
 	if err != nil {
 		log.Println(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -145,8 +145,8 @@ func handleLogin(s *Server, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Generate JWT token.
-	token, err := generateJWTToken(body.Username)
+	// Generate JWT.
+	token, err := generateJWT(body.Username)
 	if err != nil {
 		log.Println(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)

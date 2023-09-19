@@ -2,10 +2,11 @@ FROM golang:1.21
 
 WORKDIR /usr/src/server
 
-COPY . .
+COPY go.mod go.sum .
+RUN go mod download
 
-RUN go mod download \
-    && go build
+COPY . .
+RUN go build
 
 EXPOSE 8000
 

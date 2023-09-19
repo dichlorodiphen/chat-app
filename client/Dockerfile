@@ -2,7 +2,7 @@ FROM node:alpine as build
 
 WORKDIR /usr/src/client
 
-COPY ./package.json ./
+COPY package.json .
 RUN npm install
 
 COPY . .
