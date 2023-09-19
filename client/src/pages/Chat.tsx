@@ -80,6 +80,10 @@ function Chat({ token }: ChatProps) {
         return JSON.parse(await response.text());
     }
 
+    function logOut() {
+        removeCookie("token");
+    }
+
     useEffect(() => {
         getAllMessages()
             .then((arr) => {
@@ -94,6 +98,7 @@ function Chat({ token }: ChatProps) {
         <div>
             <Logo></Logo>
             <div className="chat">
+                <button onClick={logOut}>LOG OUT</button>
                 <div className="chat-history">
                     {history.map((m: Message) => {
                         return (
