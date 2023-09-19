@@ -1,18 +1,17 @@
-import './fonts.css'
+import "./fonts.css";
 
-import Auth from './pages/Auth';
-import Chat from './pages/Chat';
-import { useState } from 'react';
+import Auth from "./pages/Auth";
+import Chat from "./pages/Chat";
+import { useCookies } from "react-cookie";
 
 function App() {
-    const [token, setToken] = useState("");
+    const [cookies, setCookie, removeCookie] = useCookies(["token"]);
 
-    if (!token) {
-        return <Auth setToken={setToken}></Auth>
+    if (!cookies["token"]) {
+        return <Auth></Auth>;
     }
 
-    return <Chat token={token}></Chat>
-
+    return <Chat token={cookies["token"]}></Chat>;
 }
 
 export default App;
