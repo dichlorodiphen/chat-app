@@ -47,6 +47,7 @@ type Client struct {
 func (c *Client) read() {
 	defer func() {
 		c.hub.unregister <- c
+		c.conn.WriteMessage(websocket.CloseMessage, nil)
 		c.conn.Close()
 	}()
 
@@ -55,7 +56,7 @@ func (c *Client) read() {
 	// Handle heartbeats.
 	c.conn.SetReadDeadline(time.Now().Add(heartbeatTimeout))
 	c.conn.SetPongHandler(func(string) error {
-		c.conn.SetReadDeadline(time.Now().Add(heartbeatDelay))
+		c.conn.SetReadDeadline(time.Now().Add(heartbeatTimeout))
 		return nil
 	})
 
@@ -74,6 +75,7 @@ func (c *Client) write() {
 	ticker := time.NewTicker(heartbeatDelay)
 	defer func() {
 		ticker.Stop()
+		c.conn.WriteMessage(websocket.CloseMessage, nil)
 		c.conn.Close()
 	}()
 
@@ -82,7 +84,6 @@ func (c *Client) write() {
 		case message, ok := <-c.send:
 			// If hub closed channel, close connection.
 			if !ok {
-				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return
 			}
 

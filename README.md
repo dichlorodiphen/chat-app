@@ -19,11 +19,11 @@ Upvote race conditions are handled using transactions, allowing us to scale the 
 * [x] Persist sessions across page refreshes.
 * [x] Add logout functionality.
 * [x] Add authentication to `/ws` endpoint.
+* [x] Fix websocket heartbeat logic.
+* [ ] Stream vote updates through websocket to update vote counts dynamically.
 * [ ] Add error messages on frontend for failed authentication.
-* [ ] Implement websocket heartbeat logic on frontend.
 * [ ] Un-ugly the frontend.
 * [ ] Testing.
-* [ ] Stream vote updates through websocket to update vote counts dynamically.
 
 ## Running
 
