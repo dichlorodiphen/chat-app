@@ -10,7 +10,7 @@ Local Kubernetes (minikube) is used for deployment. Manifests have been included
 
 The backend exposes a REST API that acts as a control plane and a websocket endpoint (`/ws`) to stream messages in real time. This API is fully documented in a separate [README](server/README.md) in `server/`.
 
-JWT tokens are used for authentication, and bcrypt is used to hash passwords for storage in the database.
+JWTs are used for authentication, and bcrypt is used to hash passwords for storage in the database.
 
 Upvote race conditions are handled using transactions, allowing us to scale the backend in the future if desired.
 
@@ -29,7 +29,7 @@ Upvote race conditions are handled using transactions, allowing us to scale the 
 
 The application can be run out of the box using minikube.
 
-First, start up minikube with at least two nodes. I found that `minikube start --nodes=2` didn't work for me, so if that is the case for you, start minikube with `minikube start` and then add a node with `minikube node add`.
+First, start up minikube with at least one worker node: `minikube start --nodes 2` (assuming default CPU and memory allocation for worker nodes).
 
 Next, run `minikube tunnel` so that the frontend and backend have visible IP addresses we can connect to.
 
