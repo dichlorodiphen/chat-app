@@ -1,6 +1,6 @@
 # Chat App
 
-This is a real-time chat application built using Golang, React, and MongoDB.
+This is a real-time chat application built using Golang, React, and MongoDB. The bulk of it was made in two days for a coding challenge.
 
 ## Design
 
